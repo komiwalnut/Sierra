@@ -37,7 +37,7 @@ cd Sierra
 
 2. Create and activate virtual environment
 ```bash
-python -m venv sierra-venv
+python3 -m venv sierra-venv
 ```
 ```bash
 source sierra-venv/bin/activate
