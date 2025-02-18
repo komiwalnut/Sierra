@@ -1,4 +1,5 @@
 import os
+import sys
 from dotenv import load_dotenv
 import logging
 from src.settings import *
@@ -10,14 +11,16 @@ CACHE_DIR.mkdir(exist_ok=True)
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format=LOG_FORMAT,
-    handlers=[
-        logging.FileHandler(BASE_DIR / "sierra.log"),
-        logging.StreamHandler()
-    ]
-)
+file_handler = logging.FileHandler(BASE_DIR / "sierra.log", encoding='utf-8')
+console_handler = logging.StreamHandler(sys.stdout)
+
+formatter = logging.Formatter(LOG_FORMAT)
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+logging.root.setLevel(logging.INFO)
+logging.root.addHandler(file_handler)
+logging.root.addHandler(console_handler)
 
 config = {
     'DISCORD_BOT_TOKEN': os.getenv("DISCORD_BOT_TOKEN"),

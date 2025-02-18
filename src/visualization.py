@@ -21,14 +21,15 @@ class StormVisualizer:
         self.output_dir.mkdir(exist_ok=True)
         self.storm_colors = ['#FF3366', '#3366FF', '#FF9933', '#33CC33']
 
-    def _create_typhoon_symbol(self, center_x, center_y, size=80000, rotation=0):
-        theta = np.linspace(0, 6 * np.pi, 100)
-        r = size * theta / (6 * np.pi)
+    def _create_typhoon_symbol(self, center_x, center_y, size=80000, rotation=0, is_start=False):
+        theta = np.linspace(0, 8 * np.pi, 150)
+        r = size * theta / (8 * np.pi)
         x = r * np.cos(theta)
         y = r * np.sin(theta)
 
         vertices = []
-        for angle in [0, 120, 240]:
+
+        for angle in [0, 90, 180, 270]:
             rad = np.radians(angle + rotation)
             rot_x = x * np.cos(rad) - y * np.sin(rad)
             rot_y = x * np.sin(rad) + y * np.cos(rad)
@@ -104,34 +105,55 @@ class StormVisualizer:
                              '-', color=color, linewidth=width, alpha=0.7)
 
                 for i in range(len(x)):
+                    outer_size = 16 if i == 0 else 8
+                    inner_size = 8 if i == 0 else 4
+
                     plt.plot(x[i], y[i], 'o',
-                             markersize=8,
+                             markersize=outer_size + 4,
                              markerfacecolor='white',
                              markeredgecolor=color,
                              markeredgewidth=2)
                     plt.plot(x[i], y[i], 'o',
-                             markersize=4,
+                             markersize=inner_size,
                              markerfacecolor=color,
                              markeredgecolor=color)
 
                 for i, (px, py) in enumerate([points[0][0], points[-1][0]]):
-                    vertices = self._create_typhoon_symbol(px, py,
-                                                           size=50000 if i == 0 else 80000)
-                    for j in range(0, len(vertices) - 1, 2):
-                        plt.plot([vertices[j][0], vertices[j + 1][0]],
-                                 [vertices[j][1], vertices[j + 1][1]],
-                                 color=color, alpha=0.7)
+                    if i == 0:
+                        for size_mult in [1.2, 1.0, 0.8]:
+                            vertices = self._create_typhoon_symbol(
+                                px, py,
+                                size=140000 * size_mult,
+                                rotation=45 if size_mult == 1.0 else 0,
+                                is_start=True
+                            )
+                            for j in range(0, len(vertices) - 1, 2):
+                                plt.plot([vertices[j][0], vertices[j + 1][0]],
+                                         [vertices[j][1], vertices[j + 1][1]],
+                                         color=color,
+                                         alpha=0.7 * size_mult,
+                                         linewidth=2 if size_mult == 1.0 else 1)
+
+                    else:
+                        vertices = self._create_typhoon_symbol(px, py, size=80000)
+                        for j in range(0, len(vertices) - 1, 2):
+                            plt.plot([vertices[j][0], vertices[j + 1][0]],
+                                     [vertices[j][1], vertices[j + 1][1]],
+                                     color=color,
+                                     alpha=0.7)
 
                 for pos, point_date in [(points[0][0], dates[0]), (points[-1][0], dates[-1])]:
                     text = f"{event['title']}\n{point_date.strftime('%m/%d %H:%M UTC')}"
                     ha = 'right' if point_date == dates[0] else 'left'
+
+                    outline_width = 4 if point_date == dates[0] else 3
                     plt.text(pos[0], pos[1], text,
                              color=color,
-                             fontsize=10,
+                             fontsize=12 if point_date == dates[0] else 10,
                              fontweight='bold',
                              horizontalalignment=ha,
                              verticalalignment='bottom',
-                             path_effects=[path_effects.withStroke(linewidth=3, foreground='white')])
+                             path_effects=[path_effects.withStroke(linewidth=outline_width, foreground='white')])
 
                 plt.plot([], [], '-', color=color,
                          label=f"{event['title']} (Max: {max(magnitudes):.0f}kts)")

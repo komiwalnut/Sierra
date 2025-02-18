@@ -20,6 +20,7 @@ class WeatherBot(discord.Client):
         self.visualizer = StormVisualizer()
         self.cache = Cache()
         self.ph_timezone = pytz.timezone('Asia/Manila')
+        self.bg_task = None
 
         @self.tree.command(name="weather", description="Get Philippines Weather Updates.")
         async def weather(interaction: discord.Interaction):
@@ -27,8 +28,29 @@ class WeatherBot(discord.Client):
             logger.info(f"/weather command used in channel: {interaction.channel.name}")
 
             weather_channel = await self._get_or_create_weather_channel(interaction.guild)
-            await self._send_weather_update(weather_channel, interaction.user)
-            await interaction.followup.send(f"Weather update has been posted in {weather_channel.mention}")
+
+            if interaction.channel.id == weather_channel.id:
+                events = await self.nasa_client.fetch_severe_storms()
+
+                if events:
+                    image_path = await self.visualizer.plot_storm_path(events)
+
+                    if len(events) == 1:
+                        message_content = f"{interaction.user.mention} - Weather Alert: {events[0]['title']}"
+                    else:
+                        storm_names = ", ".join(event['title'] for event in events)
+                        message_content = f"{interaction.user.mention} - Weather Alert: Multiple storms detected ({storm_names})"
+
+                    if image_path:
+                        await interaction.followup.send(content=message_content, file=discord.File(image_path))
+                    else:
+                        await interaction.followup.send(content=f"{message_content} (No visualization available)")
+                else:
+                    message = f"{interaction.user.mention} - No active tropical cyclones or severe weather disturbances detected in the Philippine Area of Responsibility (PAR)."
+                    await interaction.followup.send(message)
+            else:
+                await self._send_weather_update(weather_channel, interaction.user)
+                await interaction.followup.send(f"Weather update has been posted in {weather_channel.mention}")
 
     async def _get_or_create_weather_channel(self, guild: discord.Guild) -> discord.TextChannel:
         channel_id = self.cache.get_weather_channel(str(guild.id))
@@ -51,25 +73,27 @@ class WeatherBot(discord.Client):
         logger.info(f"Created new weather channel in guild {guild.name} (ID: {guild.id})")
         return channel
 
-    async def _send_weather_update(self, channel: discord.TextChannel, user=None):
+    async def _send_weather_update(self, channel: discord.TextChannel, user=None, is_scheduled=False):
         events = await self.nasa_client.fetch_severe_storms()
+
+        prefix = "**Daily 8 AM PH Time Update**\n" if is_scheduled else ""
+        mention = f"{user.mention} - " if user else ""
         if events:
             image_path = await self.visualizer.plot_storm_path(events)
 
-            mention = f"{user.mention} - " if user else ""
             if len(events) == 1:
-                message_content = f"{mention}Weather Alert: {events[0]['title']}"
+                message_content = f"{prefix}{mention}Weather Alert: {events[0]['title']}"
             else:
                 storm_names = ", ".join(event['title'] for event in events)
-                message_content = f"{mention}Weather Alert: Multiple storms detected ({storm_names})"
+                message_content = f"{prefix}{mention}Weather Alert: Multiple storms detected ({storm_names})"
 
             if image_path:
                 await channel.send(content=message_content, file=discord.File(image_path))
             else:
                 await channel.send(content=f"{message_content} (No visualization available)")
         else:
-            mention = f"{user.mention} - " if user else ""
-            await channel.send(f"{mention}No weather updates available.")
+            message = f"{prefix}{mention}No active tropical cyclones or severe weather disturbances detected in the Philippine Area of Responsibility (PAR)."
+            await channel.send(message)
 
     async def scheduled_weather_update(self):
         while True:
@@ -86,7 +110,7 @@ class WeatherBot(discord.Client):
                         channel = guild.get_channel(channel_id)
                         if channel:
                             logger.info(f"Sending scheduled weather update to {guild.name}")
-                            await self._send_weather_update(channel)
+                            await self._send_weather_update(channel, is_scheduled=True)
                         else:
                             logger.warning(f"Weather channel not found in guild {guild.name}")
             except Exception as e:
