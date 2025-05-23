@@ -2,8 +2,6 @@
 
 <img src="images/Sierra.png" alt="Sierra's picture" width="250"/>
 
-Do you want to add Sierra to your server? [Click here to invite the bot!](https://discord.com/oauth2/authorize?client_id=1310593510461935628)
-
 **Sierra** is a discord bot that provides automated weather updates and storm tracking for the Philippines, utilizing NASA's EONET API for storm data.
 
 ## Features
